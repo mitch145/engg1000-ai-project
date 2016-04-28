@@ -79,9 +79,9 @@ def main():
           		distance = us.value()
 			sleep(0.1)
 			turn(-1)
-			#os.system("turn")
+			print "turn"
 
-		#t3=threading.Thread(target=speak, args=('target acquired',))
+		t3=threading.Thread(target=speak, args=('target acquired',))
 		t3.start()
 		rightMotor.stop(stop_command='brake')
 		leftMotor.stop(stop_command='brake')
@@ -90,9 +90,9 @@ def main():
 		while not btn.any():
 		
 			distance = us.value()
-                        print "distance: "+str(distance)
+            print "distance: "+str(distance)
 			dc = 100
-			#os.system("straight")
+			print "straight"
 			sleep(0.1)
 			rightMotor.run_timed(duty_cycle_sp=forwards*100, time_sp=1500)
         		leftMotor.run_timed(duty_cycle_sp=forwards*100, time_sp=1500)
