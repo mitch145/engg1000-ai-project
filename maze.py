@@ -16,7 +16,7 @@ cs = ColorSensor(); assert cs.connected
 ts1 = TouchSensor(INPUT_4); assert ts1.connected
 
 gs.mode = 'GYRO-ANG'
-cs.mode = 'COL-COLOR'
+cs.mode = 'RGB-RAW'
 
 # We will need to check EV3 buttons state.
 btn = Button()
@@ -25,9 +25,11 @@ input = 0
 wallDerivator = 0.0
 wallIntegrator = 0.0
 cyclesWithoutTurn = 0
+startHeading = 0
 
 def start():
     global input
+    global startHeading
     # wait for button press to start
     sleep(1)
     Leds.set_color(Leds.LEFT, Leds.RED)
@@ -42,6 +44,8 @@ def start():
     gs.mode = 'GYRO-RATE'
     gs.mode = 'GYRO-ANG'
     input = gs.value()
+    startHeading = gs.value()
+    print "start heading: %d" % startHeading
 
 def backup():
     leftMotor.stop(stop_command='brake')
@@ -89,6 +93,7 @@ def main():
     global input
     global wallDerivator
     global wallIntegrator
+    global startHeading
     turnGain = 1.5
     wallPGain = 0.3
     wallIGain = 0.025
@@ -111,16 +116,24 @@ def main():
             cyclesWithoutTurn += 1
             #print "cycles without a turn: %d" % cyclesWithoutTurn
 
-            if cyclesWithoutTurn > 30 and wallError*wallError <= 25:
+            if cyclesWithoutTurn > 30:
                 print "updating heading"
                 input = gs.value()
                 cyclesWithoutTurn = 0
 
-            # colour detection
-            # cs.value(0) will be 5 when red is detected
-            #print "Colour: %d" % cs.value(0)
+            # loop handling
+            tempHeading = startHeading - gs.value()
+            if tempHeading > 540 or tempHeading < -540:
+                # turn 180 and continue search
+                print "tempHeading = %d startHeading: %d gs.value(): %d" % (tempHeading, startHeading, gs.value())
+                Sound.tone([(750, 2000, 50)])
+                print "MAZE LOOP DETECTED!!!!!!"
+                turn(170)
 
-            if cs.value(0) == 5:
+            # colour detection
+            print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
+
+            if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):#cs.value(0) == 5:
                 Sound.tone([(1500, 200, 50)] * 10)
                 print "OBJECTIVE DETECTED!!!!!"
                 backup()
@@ -149,7 +162,7 @@ def main():
            
 
             # left corner handling
-            if us.value() > 300:
+            if us.value() > 400:
                 print "left corner detected"
                 # turn off wall following
                 wallOut = 0
@@ -163,11 +176,11 @@ def main():
                 leftMotor.stop(stop_command='brake')
                 rightMotor.stop(stop_command='brake')
 
-                sleep(0.2)
+                #sleep(0.2)
                 
-                turn(-70)
+                turn(-82)
 
-                sleep(0.2)
+                #sleep(0.2)
 
                 leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
                 rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
@@ -177,9 +190,9 @@ def main():
 
                 if us.value() > 300:
                     print "double turn detected"
-                    sleep(0.2)
-                    turn(-70)
-                    sleep(0.2)
+                    #sleep(0.2)
+                    turn(-87)
+                    #sleep(0.2)
                     leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
                     rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
                     while any(m.state for m in (leftMotor, rightMotor)):
@@ -191,7 +204,7 @@ def main():
             if ts1.value():
                 print "front collision, turning right"
                 backup()
-                turn(+70)
+                turn(+77)
 
             # update the motors
             turnError = input - gs.value()
@@ -212,8 +225,8 @@ def main():
             if leftOut < 0:
               leftOut = 0
 
-            rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=100)
-            leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=100)
+            rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=500)
+            leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=500)
 
 print "ready to start"
 start()
