@@ -131,6 +131,15 @@ def mazeLoop():
         print "MAZE LOOP DETECTED!!!!!!"
         turn(170)
 
+def detectRed():
+    #print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
+
+    if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):
+        Sound.tone([(1500, 200, 50)] * 10)
+        print "OBJECTIVE DETECTED!!!!!"
+        backup()
+        turn(170)
+
 def main():
     global input
     global wallDerivator
@@ -160,13 +169,7 @@ def main():
         mazeLoop()
 
         # colour detection
-        print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
-
-        if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):#cs.value(0) == 5:
-            Sound.tone([(1500, 200, 50)] * 10)
-            print "OBJECTIVE DETECTED!!!!!"
-            backup()
-            turn(170)
+        detectRed()
 
         # wall following
         wallError = -(us.value() - desDistToWall)
