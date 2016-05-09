@@ -121,11 +121,20 @@ def gyroDrift():
         smoothedGyro = gs.value(0)
         cyclesWithoutTurn = 0
 
+def mazeLoop():
+    global startHeading
+    tempHeading = startHeading - gs.value(0)
+    if tempHeading > 540 or tempHeading < -540:
+        # turn 180 and continue search
+        print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
+        Sound.tone([(750, 2000, 50)])
+        print "MAZE LOOP DETECTED!!!!!!"
+        turn(170)
+
 def main():
     global input
     global wallDerivator
     global wallIntegrator
-    global startHeading
     global forwardOut
     global wallOut
     wallPGain = 0.3
@@ -148,13 +157,7 @@ def main():
         gyroDrift()
 
         # loop handling
-        tempHeading = startHeading - gs.value(0)
-        if tempHeading > 540 or tempHeading < -540:
-            # turn 180 and continue search
-            print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
-            Sound.tone([(750, 2000, 50)])
-            print "MAZE LOOP DETECTED!!!!!!"
-            turn(170)
+        mazeLoop()
 
         # colour detection
         print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
