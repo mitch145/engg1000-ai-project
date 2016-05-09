@@ -97,7 +97,7 @@ def turn(turnAmount):
     leftMotor.stop(stop_command='brake')
     rightMotor.stop(stop_command='brake')
 
-def gyroDrift()
+def gyroDrift():
     global smoothedGyro
     global filterVal
 
