@@ -16,7 +16,7 @@ gs = GyroSensor(); assert gs.connected
 cs = ColorSensor(); assert cs.connected
 ts1 = TouchSensor(INPUT_4); assert ts1.connected
 
-gs.mode = 'GYRO-ANG'
+gs.mode = 'GYRO-G&A'
 cs.mode = 'RGB-RAW'
 
 # We will need to check EV3 buttons state.
@@ -37,7 +37,7 @@ def start():
     sleep(1)
     Leds.set_color(Leds.LEFT, Leds.RED)
     Leds.set_color(Leds.RIGHT, Leds.RED)
-    #input = gs.value()
+    #input = gs.value(0)
     while not btn.any():
         sleep(0.1)
 
@@ -46,9 +46,9 @@ def start():
     #sleep()
     gs.mode = 'GYRO-RATE'
     sleep(1)
-    gs.mode = 'GYRO-ANG'
-    input = gs.value()
-    startHeading = gs.value()
+    gs.mode = 'GYRO-G&A'
+    input = gs.value(0)
+    startHeading = gs.value(0)
     print "start heading: %d" % startHeading
 
 def backup():
@@ -67,7 +67,7 @@ def turn(turnAmount):
     global input
     global cyclesWithoutTurn
     target = input + turnAmount
-    error = target - gs.value()
+    error = target - gs.value(0)
     cyclesWithoutTurn = 0
 
     if turnAmount < 0:
@@ -75,7 +75,7 @@ def turn(turnAmount):
         while error < 0 and not btn.any():
             rightMotor.run_timed(duty_cycle_sp=0, time_sp=50)
             leftMotor.run_timed(duty_cycle_sp=80, time_sp=50)
-            error = target - gs.value()
+            error = target - gs.value(0)
             sleep(0.02)
             #print error
 
@@ -84,11 +84,11 @@ def turn(turnAmount):
         while error > 0 and not btn.any():
             rightMotor.run_timed(duty_cycle_sp=80, time_sp=50)
             leftMotor.run_timed(duty_cycle_sp=0, time_sp=50)
-            error = target - gs.value()
+            error = target - gs.value(0)
             sleep(0.02)
 #print error
 
-    input = gs.value()
+    input = gs.value(0)
 
     print "stop turning"
 
@@ -112,25 +112,39 @@ def main():
     desDistToWall = 100.0 #mm
     forwardOut = 80
     turnError = 0
+    smoothedGyro = gs.value(0)
+    filterVal = 0.1
     global cyclesWithoutTurn
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
 
     while not btn.any():
-        print gs.value()
-        #reset input if the robot has followed a wall for a while without a turn
+        #gyro drift correction
+        print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
         cyclesWithoutTurn += 1
+        smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
         if cyclesWithoutTurn > 30:
-            print "updating heading"
-            input = gs.value()
+            print "updating heading..."
+            leftMotor.stop(stop_command='brake')
+            rightMotor.stop(stop_command='brake')
+            sleep(0.5)
+            if(gs.value(1) > 0:
+                print "gyro drift detected, resetting gyro..."
+                gs.mode = 'GYRO-RATE'
+                sleep(1)
+                gs.mode = 'GYRO-G&A'
+                sleep(1)
+                print "gyro reset complete..."
+            input = smoothedGyro
+            smoothedGyro = gs.value(0)
             cyclesWithoutTurn = 0
 
         # loop handling
-        tempHeading = startHeading - gs.value()
+        tempHeading = startHeading - gs.value(0)
         if tempHeading > 540 or tempHeading < -540:
             # turn 180 and continue search
-            print "tempHeading = %d startHeading: %d gs.value(): %d" % (tempHeading, startHeading, gs.value())
+            print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
             Sound.tone([(750, 2000, 50)])
             print "MAZE LOOP DETECTED!!!!!!"
             turn(170)
@@ -231,11 +245,11 @@ def forward():
     turnGain = 1.5
 
     # update the motors
-    turnError = input - gs.value()
+    turnError = input - gs.value(0)
     turnOut = turnGain * (turnError + wallOut)
     rightOut = forwardOut + turnOut
     leftOut = forwardOut - turnOut
-    #print "turn error %d gyro val %d" % (turnError, gs.value())
+    #print "turn error %d gyro val %d" % (turnError, gs.value(0))
 
     if rightOut > 100:
         rightOut = 100
