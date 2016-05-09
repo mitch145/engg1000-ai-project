@@ -100,6 +100,7 @@ def turn(turnAmount):
 def gyroDrift():
     global smoothedGyro
     global filterVal
+    global cyclesWithoutTurn
 
     print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
     cyclesWithoutTurn += 1
@@ -109,7 +110,7 @@ def gyroDrift():
         leftMotor.stop(stop_command='brake')
         rightMotor.stop(stop_command='brake')
         sleep(0.5)
-        if(gs.value(1) > 0:
+        if gs.value(1) > 0:
             print "gyro drift detected, resetting gyro..."
             gs.mode = 'GYRO-RATE'
             sleep(1)
