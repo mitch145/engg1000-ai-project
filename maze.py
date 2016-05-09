@@ -29,6 +29,8 @@ cyclesWithoutTurn = 0
 startHeading = 0
 wallOut = 0
 forwardOut = 0
+smoothedGyro = gs.value(0)
+filterVal = 0.1
 
 def start():
     global input
@@ -95,6 +97,29 @@ def turn(turnAmount):
     leftMotor.stop(stop_command='brake')
     rightMotor.stop(stop_command='brake')
 
+def gyroDrift()
+    global smoothedGyro
+    global filterVal
+
+    print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
+    cyclesWithoutTurn += 1
+    smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
+    if cyclesWithoutTurn > 30:
+        print "updating heading..."
+        leftMotor.stop(stop_command='brake')
+        rightMotor.stop(stop_command='brake')
+        sleep(0.5)
+        if(gs.value(1) > 0:
+            print "gyro drift detected, resetting gyro..."
+            gs.mode = 'GYRO-RATE'
+            sleep(1)
+            gs.mode = 'GYRO-G&A'
+            sleep(1)
+            print "gyro reset complete..."
+        input = smoothedGyro
+        smoothedGyro = gs.value(0)
+        cyclesWithoutTurn = 0
+
 def main():
     global input
     global wallDerivator
@@ -112,8 +137,6 @@ def main():
     desDistToWall = 100.0 #mm
     forwardOut = 80
     turnError = 0
-    smoothedGyro = gs.value(0)
-    filterVal = 0.1
     global cyclesWithoutTurn
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
@@ -121,24 +144,7 @@ def main():
 
     while not btn.any():
         #gyro drift correction
-        print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
-        cyclesWithoutTurn += 1
-        smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
-        if cyclesWithoutTurn > 30:
-            print "updating heading..."
-            leftMotor.stop(stop_command='brake')
-            rightMotor.stop(stop_command='brake')
-            sleep(0.5)
-            if(gs.value(1) > 0:
-                print "gyro drift detected, resetting gyro..."
-                gs.mode = 'GYRO-RATE'
-                sleep(1)
-                gs.mode = 'GYRO-G&A'
-                sleep(1)
-                print "gyro reset complete..."
-            input = smoothedGyro
-            smoothedGyro = gs.value(0)
-            cyclesWithoutTurn = 0
+        gyroDrift()
 
         # loop handling
         tempHeading = startHeading - gs.value(0)
