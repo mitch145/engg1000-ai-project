@@ -11,6 +11,7 @@ from ev3dev.auto import *
 rightMotor = LargeMotor(OUTPUT_A)
 leftMotor  = LargeMotor(OUTPUT_D)
 
+# sensors
 us = UltrasonicSensor(); assert us.connected
 gs = GyroSensor(); assert gs.connected
 cs = ColorSensor(); assert cs.connected
@@ -31,114 +32,6 @@ wallOut = 0
 forwardOut = 0
 smoothedGyro = gs.value(0)
 filterVal = 0.1
-
-def start():
-    global input
-    global startHeading
-    # wait for button press to start
-    sleep(1)
-    Leds.set_color(Leds.LEFT, Leds.RED)
-    Leds.set_color(Leds.RIGHT, Leds.RED)
-    #input = gs.value(0)
-    while not btn.any():
-        sleep(0.1)
-
-    # reset gryo
-    print "cal gyro"
-    #sleep()
-    gs.mode = 'GYRO-RATE'
-    sleep(1)
-    gs.mode = 'GYRO-G&A'
-    input = gs.value(0)
-    startHeading = gs.value(0)
-    print "start heading: %d" % startHeading
-
-def backup():
-    leftMotor.stop(stop_command='brake')
-    rightMotor.stop(stop_command='brake')
-    leftMotor.run_timed(duty_cycle_sp=-70, time_sp=800)
-    rightMotor.run_timed(duty_cycle_sp=-70, time_sp=800)
-        
-    while any(m.state for m in (leftMotor, rightMotor)):
-        sleep(0.1)
-
-    leftMotor.stop(stop_command='brake')
-    rightMotor.stop(stop_command='brake')
-
-def turn(turnAmount):
-    global input
-    global cyclesWithoutTurn
-    target = input + turnAmount
-    error = target - gs.value(0)
-    cyclesWithoutTurn = 0
-
-    if turnAmount < 0:
-        print "turn left"
-        while error < 0 and not btn.any():
-            rightMotor.run_timed(duty_cycle_sp=0, time_sp=50)
-            leftMotor.run_timed(duty_cycle_sp=80, time_sp=50)
-            error = target - gs.value(0)
-            sleep(0.02)
-            #print error
-
-    if turnAmount > 0:
-        print "turn right"
-        while error > 0 and not btn.any():
-            rightMotor.run_timed(duty_cycle_sp=80, time_sp=50)
-            leftMotor.run_timed(duty_cycle_sp=0, time_sp=50)
-            error = target - gs.value(0)
-            sleep(0.02)
-#print error
-
-    input = gs.value(0)
-
-    print "stop turning"
-
-    leftMotor.stop(stop_command='brake')
-    rightMotor.stop(stop_command='brake')
-
-def gyroDrift():
-    global smoothedGyro
-    global filterVal
-    global cyclesWithoutTurn
-
-    print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
-    cyclesWithoutTurn += 1
-    smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
-    if cyclesWithoutTurn > 30:
-        print "updating heading..."
-        leftMotor.stop(stop_command='brake')
-        rightMotor.stop(stop_command='brake')
-        sleep(0.5)
-        if gs.value(1) > 0:
-            print "gyro drift detected, resetting gyro..."
-            gs.mode = 'GYRO-RATE'
-            sleep(1)
-            gs.mode = 'GYRO-G&A'
-            sleep(1)
-            print "gyro reset complete..."
-        input = smoothedGyro
-        smoothedGyro = gs.value(0)
-        cyclesWithoutTurn = 0
-
-def mazeLoop():
-    global startHeading
-    tempHeading = startHeading - gs.value(0)
-    if tempHeading > 540 or tempHeading < -540:
-        # turn 180 and continue search
-        print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
-        Sound.tone([(750, 2000, 50)])
-        print "MAZE LOOP DETECTED!!!!!!"
-        turn(170)
-
-def detectRed():
-    #print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
-
-    if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):
-        Sound.tone([(1500, 200, 50)] * 10)
-        print "OBJECTIVE DETECTED!!!!!"
-        backup()
-        turn(170)
 
 def main():
     global input
@@ -199,6 +92,113 @@ def main():
 
         # continue onwards
         forward()
+
+def start():
+    global input
+    global startHeading
+    # wait for button press to start
+    sleep(1)
+    Leds.set_color(Leds.LEFT, Leds.RED)
+    Leds.set_color(Leds.RIGHT, Leds.RED)
+    #input = gs.value(0)
+    while not btn.any():
+        sleep(0.1)
+
+    # reset gryo
+    print "cal gyro"
+    #sleep()
+    gs.mode = 'GYRO-RATE'
+    sleep(1)
+    gs.mode = 'GYRO-G&A'
+    input = gs.value(0)
+    startHeading = gs.value(0)
+    print "start heading: %d" % startHeading
+
+def backup():
+    leftMotor.stop(stop_command='brake')
+    rightMotor.stop(stop_command='brake')
+    leftMotor.run_timed(duty_cycle_sp=-70, time_sp=800)
+    rightMotor.run_timed(duty_cycle_sp=-70, time_sp=800)
+        
+    while any(m.state for m in (leftMotor, rightMotor)):
+        sleep(0.1)
+
+    leftMotor.stop(stop_command='brake')
+    rightMotor.stop(stop_command='brake')
+
+def turn(turnAmount):
+    global input
+    global cyclesWithoutTurn
+    target = input + turnAmount
+    error = target - gs.value(0)
+    cyclesWithoutTurn = 0
+
+    if turnAmount < 0:
+        print "turn left"
+        while error < 0 and not btn.any():
+            rightMotor.run_timed(duty_cycle_sp=0, time_sp=50)
+            leftMotor.run_timed(duty_cycle_sp=80, time_sp=50)
+            error = target - gs.value(0)
+            sleep(0.02)
+            #print error
+
+    if turnAmount > 0:
+        print "turn right"
+        while error > 0 and not btn.any():
+            rightMotor.run_timed(duty_cycle_sp=80, time_sp=50)
+            leftMotor.run_timed(duty_cycle_sp=0, time_sp=50)
+            error = target - gs.value(0)
+            sleep(0.02)
+
+    input = gs.value(0)
+
+    print "stop turning"
+
+    leftMotor.stop(stop_command='brake')
+    rightMotor.stop(stop_command='brake')
+
+def gyroDrift():
+    global smoothedGyro
+    global filterVal
+    global cyclesWithoutTurn
+
+    print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
+    cyclesWithoutTurn += 1
+    smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
+    if cyclesWithoutTurn > 30:
+        print "updating heading..."
+        leftMotor.stop(stop_command='brake')
+        rightMotor.stop(stop_command='brake')
+        sleep(0.5)
+        if gs.value(1) > 0:
+            print "gyro drift detected, resetting gyro..."
+            gs.mode = 'GYRO-RATE'
+            sleep(1)
+            gs.mode = 'GYRO-G&A'
+            sleep(1)
+            print "gyro reset complete..."
+        input = smoothedGyro
+        smoothedGyro = gs.value(0)
+        cyclesWithoutTurn = 0
+
+def mazeLoop():
+    global startHeading
+    tempHeading = startHeading - gs.value(0)
+    if tempHeading > 540 or tempHeading < -540:
+        # turn 180 and continue search
+        print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
+        Sound.tone([(750, 2000, 50)])
+        print "MAZE LOOP DETECTED!!!!!!"
+        turn(170)
+
+def detectRed():
+    #print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
+
+    if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):
+        Sound.tone([(1500, 200, 50)] * 10)
+        print "OBJECTIVE DETECTED!!!!!"
+        backup()
+        turn(170)
 
 def leftCorner():
     global wallOut
