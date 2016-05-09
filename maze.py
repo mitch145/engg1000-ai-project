@@ -162,7 +162,7 @@ def gyroDrift():
     global filterVal
     global cyclesWithoutTurn
 
-    print "gyro angle: %d, gyro rate: %d" % (gs.value(0), gs.value(1))
+    print "gyro angle: %d, gyro rate: %d, smoothed gyro: %d" % (gs.value(0), gs.value(1), smoothedGyro)
     cyclesWithoutTurn += 1
     smoothedGyro = (gs.value(0) * (1 - filterVal)) + (smoothedGyro  *  filterVal);
     if cyclesWithoutTurn > 30:
@@ -170,8 +170,9 @@ def gyroDrift():
         leftMotor.stop(stop_command='brake')
         rightMotor.stop(stop_command='brake')
         sleep(0.5)
-        if gs.value(1) > 0:
+        if gs.value(1) > 1 or gs.value(1) < -1:
             print "gyro drift detected, resetting gyro..."
+            Sound.tone([(2500, 200, 50)] * 2)
             gs.mode = 'GYRO-RATE'
             sleep(1)
             gs.mode = 'GYRO-G&A'
