@@ -51,6 +51,7 @@ def main():
     forwardOut = 80
     turnError = 0
     global cyclesWithoutTurn
+    global wallFollowEnable
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
