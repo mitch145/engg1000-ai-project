@@ -186,61 +186,47 @@ def main():
         #print "wall error %d" % wallError
         
         # left corner handling
-        if us.value() > 400:
-            print "left corner detected"
-            # turn off wall following
-            wallOut = 0
-
-            #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 250)
-            #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 250)
-            #while any(m.state for m in (leftMotor, rightMotor)):
-            #    sleep(0.1)
-            loopCount = 0
-            while loopCount < 10 and not btn.any():
-                forward()
-                loopCount += 1
-            
-
-            leftMotor.stop(stop_command='brake')
-            rightMotor.stop(stop_command='brake')
-
-            #sleep(0.2)
-            
-            turn(-90)
-
-            #sleep(0.2)
-
-            #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-            #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-            #while any(m.state for m in (leftMotor, rightMotor)):
-            #    sleep(0.1)
-
-            loopCount = 0
-            while loopCount < 20 and not btn.any():
-                forward()
-                loopCount += 1
-
-            if us.value() > 400:
-                print "double turn detected"
-                #sleep(0.2)
-                turn(-90)
-                #sleep(0.2)
-                #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-                #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-                #while any(m.state for m in (leftMotor, rightMotor)):
-                #    sleep(0.1)
-                loopCount = 0
-                while loopCount < 20 and not btn.any():
-                    forward()
-                    loopCount += 1
-
-            print "turn complete"
+        leftCorner()
 
         # forward wall collision
         frontCollision()
 
         # continue onwards
         forward()
+
+def leftCorner():
+    global wallOut
+
+    if us.value() > 400:
+        print "left corner detected"
+        # turn off wall following
+        wallOut = 0
+
+        loopCount = 0
+        while loopCount < 10 and not btn.any():
+            forward()
+            loopCount += 1
+        
+
+        leftMotor.stop(stop_command='brake')
+        rightMotor.stop(stop_command='brake')
+        
+        turn(-90)
+
+        loopCount = 0
+        while loopCount < 20 and not btn.any():
+            forward()
+            loopCount += 1
+
+        if us.value() > 400:
+            print "double turn detected"
+            turn(-90)
+            loopCount = 0
+            while loopCount < 20 and not btn.any():
+                forward()
+                loopCount += 1
+
+        print "turn complete"
 
 def frontCollision():
     if ts1.value():
