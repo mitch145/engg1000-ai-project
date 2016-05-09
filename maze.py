@@ -1,6 +1,7 @@
 from time   import sleep
 import sys
 import os
+import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -26,6 +27,8 @@ wallDerivator = 0.0
 wallIntegrator = 0.0
 cyclesWithoutTurn = 0
 startHeading = 0
+wallOut = 0
+forwardOut = 0
 
 def start():
     global input
@@ -40,8 +43,9 @@ def start():
 
     # reset gryo
     print "cal gyro"
-    sleep(1)
+    #sleep()
     gs.mode = 'GYRO-RATE'
+    sleep(1)
     gs.mode = 'GYRO-ANG'
     input = gs.value()
     startHeading = gs.value()
@@ -72,6 +76,7 @@ def turn(turnAmount):
             rightMotor.run_timed(duty_cycle_sp=0, time_sp=50)
             leftMotor.run_timed(duty_cycle_sp=80, time_sp=50)
             error = target - gs.value()
+            sleep(0.02)
             #print error
 
     if turnAmount > 0:
@@ -80,7 +85,8 @@ def turn(turnAmount):
             rightMotor.run_timed(duty_cycle_sp=80, time_sp=50)
             leftMotor.run_timed(duty_cycle_sp=0, time_sp=50)
             error = target - gs.value()
-            #print error
+            sleep(0.02)
+#print error
 
     input = gs.value()
 
@@ -94,14 +100,14 @@ def main():
     global wallDerivator
     global wallIntegrator
     global startHeading
-    turnGain = 1.5
+    global forwardOut
+    global wallOut
     wallPGain = 0.3
     wallIGain = 0.025
     wallDGain = 0.2
     wallDValue = 0.0
     wallPValue = 0.0
     wallIValue = 0.0
-    wallOut = 0
     wallError = 0
     desDistToWall = 100.0 #mm
     forwardOut = 80
@@ -112,121 +118,137 @@ def main():
     Leds.set_color(Leds.LEFT, Leds.GREEN)
 
     while not btn.any():
-            #reset input if the robot has followed a wall for a while without a turn
-            cyclesWithoutTurn += 1
-            #print "cycles without a turn: %d" % cyclesWithoutTurn
+        print gs.value()
+        #reset input if the robot has followed a wall for a while without a turn
+        cyclesWithoutTurn += 1
+        if cyclesWithoutTurn > 30:
+            print "updating heading"
+            input = gs.value()
+            cyclesWithoutTurn = 0
 
-            if cyclesWithoutTurn > 30:
-                print "updating heading"
-                input = gs.value()
-                cyclesWithoutTurn = 0
+        # loop handling
+        tempHeading = startHeading - gs.value()
+        if tempHeading > 540 or tempHeading < -540:
+            # turn 180 and continue search
+            print "tempHeading = %d startHeading: %d gs.value(): %d" % (tempHeading, startHeading, gs.value())
+            Sound.tone([(750, 2000, 50)])
+            print "MAZE LOOP DETECTED!!!!!!"
+            turn(170)
 
-            # loop handling
-            tempHeading = startHeading - gs.value()
-            if tempHeading > 540 or tempHeading < -540:
-                # turn 180 and continue search
-                print "tempHeading = %d startHeading: %d gs.value(): %d" % (tempHeading, startHeading, gs.value())
-                Sound.tone([(750, 2000, 50)])
-                print "MAZE LOOP DETECTED!!!!!!"
-                turn(170)
+        # colour detection
+        print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
 
-            # colour detection
-            print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
+        if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):#cs.value(0) == 5:
+            Sound.tone([(1500, 200, 50)] * 10)
+            print "OBJECTIVE DETECTED!!!!!"
+            backup()
+            turn(170)
 
-            if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):#cs.value(0) == 5:
-                Sound.tone([(1500, 200, 50)] * 10)
-                print "OBJECTIVE DETECTED!!!!!"
-                backup()
-                turn(170)
+        # wall following
+        wallError = -(us.value() - desDistToWall)
+        if wallIntegrator > 50:
+            wallIntegrator = 50
+        if wallIntegrator < -50:
+            wallIntegrator = -50
 
-            # wall following
-            wallError = -(us.value() - desDistToWall)
-            if wallIntegrator > 50:
-                wallIntegrator = 50
-            if wallIntegrator < -50:
-                wallIntegrator = -50
+        wallIntegrator += wallError 
 
-            wallIntegrator += wallError 
+        wallPValue = wallPGain * wallError
+        wallIValue = wallIGain * wallIntegrator
+        wallDValue = wallDGain * (wallError - wallDerivator)
 
-            wallPValue = wallPGain * wallError
-            wallIValue = wallIGain * wallIntegrator
-            wallDValue = wallDGain * (wallError - wallDerivator)
+        #print "P: %d I: %d D: %d" % (wallPValue, wallIValue, wallDValue)
 
-            #print "P: %d I: %d D: %d" % (wallPValue, wallIValue, wallDValue)
+        wallDerivator = wallError
 
-            wallDerivator = wallError
+        wallOut = wallPValue + wallDValue + wallIValue
+        #print "wall error %d" % wallError
+        
+        # left corner handling
+        if us.value() > 400:
+            print "left corner detected"
+            # turn off wall following
+            wallOut = 0
 
-            wallOut = wallPValue + wallDValue + wallIValue
-            #print "wall error %d" % wallError
+            #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 250)
+            #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 250)
+            #while any(m.state for m in (leftMotor, rightMotor)):
+            #    sleep(0.1)
+            loopCount = 0
+            while loopCount < 10 and not btn.any():
+                forward()
+                loopCount += 1
             
-           
 
-            # left corner handling
+            leftMotor.stop(stop_command='brake')
+            rightMotor.stop(stop_command='brake')
+
+            #sleep(0.2)
+            
+            turn(-90)
+
+            #sleep(0.2)
+
+            #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
+            #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
+            #while any(m.state for m in (leftMotor, rightMotor)):
+            #    sleep(0.1)
+
+            loopCount = 0
+            while loopCount < 20 and not btn.any():
+                forward()
+                loopCount += 1
+
             if us.value() > 400:
-                print "left corner detected"
-                # turn off wall following
-                wallOut = 0
-
-                leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 200)
-                rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 200)
- 
-                while any(m.state for m in (leftMotor, rightMotor)):
-                    sleep(0.1)
-
-                leftMotor.stop(stop_command='brake')
-                rightMotor.stop(stop_command='brake')
-
+                print "double turn detected"
                 #sleep(0.2)
-                
-                turn(-82)
-
+                turn(-90)
                 #sleep(0.2)
+                #leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
+                #rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
+                #while any(m.state for m in (leftMotor, rightMotor)):
+                #    sleep(0.1)
+                loopCount = 0
+                while loopCount < 20 and not btn.any():
+                    forward()
+                    loopCount += 1
 
-                leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-                rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
+            print "turn complete"
 
-                while any(m.state for m in (leftMotor, rightMotor)):
-                    sleep(0.1)
+        # forward wall collision
+        if ts1.value():
+            print "front collision, turning right"
+            backup()
+            turn(+77)
 
-                if us.value() > 300:
-                    print "double turn detected"
-                    #sleep(0.2)
-                    turn(-87)
-                    #sleep(0.2)
-                    leftMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-                    rightMotor.run_timed(duty_cycle_sp = 80, time_sp = 1300)
-                    while any(m.state for m in (leftMotor, rightMotor)):
-                        sleep(0.1)
+        # continue onwards
+        forward()
 
-                print "turn complete"
+def forward():
+    global input
+    global wallOut
+    global forwardOut
+    turnGain = 1.5
 
-            # forward wall collision
-            if ts1.value():
-                print "front collision, turning right"
-                backup()
-                turn(+77)
+    # update the motors
+    turnError = input - gs.value()
+    turnOut = turnGain * (turnError + wallOut)
+    rightOut = forwardOut + turnOut
+    leftOut = forwardOut - turnOut
+    #print "turn error %d gyro val %d" % (turnError, gs.value())
 
-            # update the motors
-            turnError = input - gs.value()
-            turnOut = turnGain * (turnError + wallOut)
-            rightOut = forwardOut + turnOut
-            leftOut = forwardOut - turnOut
-            #print "turn error %d gyro val %d" % (turnError, gs.value())
+    if rightOut > 100:
+        rightOut = 100
+    if rightOut < 0:
+        rightOut = 0
 
-            #print error
+    if leftOut > 100:
+        leftOut = 100
+    if leftOut < 0:
+        leftOut = 0
 
-            if rightOut > 100:
-              rightOut = 100
-            if rightOut < 0:
-              rightOut = 0
-
-            if leftOut > 100:
-              leftOut = 100
-            if leftOut < 0:
-              leftOut = 0
-
-            rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=500)
-            leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=500)
+    rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=100)
+    leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=100)
 
 print "ready to start"
 start()
