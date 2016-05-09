@@ -236,13 +236,16 @@ def main():
             print "turn complete"
 
         # forward wall collision
-        if ts1.value():
-            print "front collision, turning right"
-            backup()
-            turn(+77)
+        frontCollision()
 
         # continue onwards
         forward()
+
+def frontCollision():
+    if ts1.value():
+        print "front collision, turning right"
+        backup()
+        turn(+77)
 
 def forward():
     global input
