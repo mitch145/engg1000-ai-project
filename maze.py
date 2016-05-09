@@ -32,6 +32,7 @@ wallOut = 0
 forwardOut = 0
 smoothedGyro = gs.value(0)
 filterVal = 0.1
+wallFollowEnable = True
 
 def main():
     global input
@@ -56,7 +57,7 @@ def main():
 
     while not btn.any():
         #gyro drift correction
-        gyroDrift()
+        #gyroDrift()
 
         # loop handling
         mazeLoop()
@@ -65,24 +66,30 @@ def main():
         detectRed()
 
         # wall following
-        wallError = -(us.value() - desDistToWall)
-        if wallIntegrator > 50:
-            wallIntegrator = 50
-        if wallIntegrator < -50:
-            wallIntegrator = -50
+        if us.value() < 200:
+            wallFollowEnable = True
+            print "wall following enabled"
 
-        wallIntegrator += wallError 
+        if wallFollowEnable == True:
+            wallError = -(us.value() - desDistToWall)
 
-        wallPValue = wallPGain * wallError
-        wallIValue = wallIGain * wallIntegrator
-        wallDValue = wallDGain * (wallError - wallDerivator)
+            wallIntegrator += wallError 
 
-        #print "P: %d I: %d D: %d" % (wallPValue, wallIValue, wallDValue)
+            if wallIntegrator > 50:
+                wallIntegrator = 50
+            if wallIntegrator < -50:
+                wallIntegrator = -50
 
-        wallDerivator = wallError
+            wallPValue = wallPGain * wallError
+            wallIValue = wallIGain * wallIntegrator
+            wallDValue = wallDGain * (wallError - wallDerivator)
 
-        wallOut = wallPValue + wallDValue + wallIValue
-        #print "wall error %d" % wallError
+            #print "P: %d I: %d D: %d" % (wallPValue, wallIValue, wallDValue)
+
+            wallDerivator = wallError
+
+            wallOut = wallPValue + wallDValue + wallIValue
+            #print "wall error %d" % wallError
         
         # left corner handling
         leftCorner()
@@ -91,7 +98,7 @@ def main():
         frontCollision()
 
         # continue onwards
-        forward()
+        motion()
 
 def start():
     global input
@@ -126,37 +133,6 @@ def backup():
     leftMotor.stop(stop_command='brake')
     rightMotor.stop(stop_command='brake')
 
-def turn(turnAmount):
-    global input
-    global cyclesWithoutTurn
-    target = input + turnAmount
-    error = target - gs.value(0)
-    cyclesWithoutTurn = 0
-
-    if turnAmount < 0:
-        print "turn left"
-        while error < 0 and not btn.any():
-            rightMotor.run_timed(duty_cycle_sp=0, time_sp=50)
-            leftMotor.run_timed(duty_cycle_sp=80, time_sp=50)
-            error = target - gs.value(0)
-            sleep(0.02)
-            #print error
-
-    if turnAmount > 0:
-        print "turn right"
-        while error > 0 and not btn.any():
-            rightMotor.run_timed(duty_cycle_sp=80, time_sp=50)
-            leftMotor.run_timed(duty_cycle_sp=0, time_sp=50)
-            error = target - gs.value(0)
-            sleep(0.02)
-
-    input = gs.value(0)
-
-    print "stop turning"
-
-    leftMotor.stop(stop_command='brake')
-    rightMotor.stop(stop_command='brake')
-
 def gyroDrift():
     global smoothedGyro
     global filterVal
@@ -184,64 +160,52 @@ def gyroDrift():
 
 def mazeLoop():
     global startHeading
+    global input
+
     tempHeading = startHeading - gs.value(0)
     if tempHeading > 540 or tempHeading < -540:
         # turn 180 and continue search
         print "tempHeading = %d startHeading: %d gs.value(0): %d" % (tempHeading, startHeading, gs.value(0))
         Sound.tone([(750, 2000, 50)])
         print "MAZE LOOP DETECTED!!!!!!"
-        turn(170)
+        input += 180
 
 def detectRed():
+    global input
     #print "R: %d G: %d B: %d" % (cs.value(0), cs.value(1), cs.value(2))
 
     if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):
         Sound.tone([(1500, 200, 50)] * 10)
         print "OBJECTIVE DETECTED!!!!!"
         backup()
-        turn(170)
+        input += 180
 
 def leftCorner():
     global wallOut
+    global wallFollowEnable
+    global input
 
     if us.value() > 400:
-        print "left corner detected"
-        # turn off wall following
-        wallOut = 0
 
-        loopCount = 0
-        while loopCount < 10 and not btn.any():
-            forward()
-            loopCount += 1
+        wallout = 0
+        if wallFollowEnable == True:
+            print "left corner detected"
+            input -= 90
+            wallFollowEnable = False
+            print "wall following disabled"
+            print "target heading: %d" % input
+
         
-
-        leftMotor.stop(stop_command='brake')
-        rightMotor.stop(stop_command='brake')
-        
-        turn(-90)
-
-        loopCount = 0
-        while loopCount < 20 and not btn.any():
-            forward()
-            loopCount += 1
-
-        if us.value() > 400:
-            print "double turn detected"
-            turn(-90)
-            loopCount = 0
-            while loopCount < 20 and not btn.any():
-                forward()
-                loopCount += 1
-
-        print "turn complete"
 
 def frontCollision():
+    global input
+
     if ts1.value():
         print "front collision, turning right"
         backup()
-        turn(+77)
+        input += 90
 
-def forward():
+def motion():
     global input
     global wallOut
     global forwardOut
@@ -249,6 +213,14 @@ def forward():
 
     # update the motors
     turnError = input - gs.value(0)
+
+    print "turn error: %d" % turnError
+
+    if turnError > 1:
+        turnError = 1
+    if turnError < -1:
+        turnError = -1
+
     turnOut = turnGain * (turnError + wallOut)
     rightOut = forwardOut + turnOut
     leftOut = forwardOut - turnOut
