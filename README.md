@@ -21,3 +21,12 @@ thread1.join() Waits for the thread to finish
 
 #Clear the bullshit
 sudo truncate -s 0 maze.py
+
+/////////////////////////////////////////////////
+USER MANUAL:
+- start ev3 without sensors in
+- connect via USB to avoid freezing
+- align robot to maze with alignment arms
+- no movement from before starting program
+- when leds go red press any button
+
