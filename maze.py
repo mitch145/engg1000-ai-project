@@ -19,6 +19,7 @@ ts1 = TouchSensor(INPUT_4); assert ts1.connected
 
 gs.mode = 'GYRO-G&A'
 cs.mode = 'RGB-RAW'
+#us.mode = 'US-SI-CM'
 
 # We will need to check EV3 buttons state.
 btn = Button()
@@ -33,6 +34,7 @@ forwardOut = 0
 smoothedGyro = gs.value(0)
 filterVal = 0.1
 wallFollowEnable = True
+sonarDist = 0
 
 def main():
     global input
@@ -52,13 +54,16 @@ def main():
     turnError = 0
     global cyclesWithoutTurn
     global wallFollowEnable
+    global sonarDist
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
 
     while not btn.any():
+        sonarDist = us.value(0)
         #gyro drift correction
         #gyroDrift()
+        
 
         # loop handling
         mazeLoop()
@@ -67,12 +72,12 @@ def main():
         detectRed()
 
         # wall following
-        if us.value() < 200:
+        if sonarDist < 200 and wallFollowEnable == False:
             wallFollowEnable = True
             print "wall following enabled"
 
         if wallFollowEnable == True:
-            wallError = -(us.value() - desDistToWall)
+            wallError = -(sonarDist - desDistToWall)
 
             wallIntegrator += wallError 
 
@@ -91,6 +96,9 @@ def main():
 
             wallOut = wallPValue + wallDValue + wallIValue
             #print "wall error %d" % wallError
+
+        if wallFollowEnable == False:
+            wallOut = 0
         
         # left corner handling
         leftCorner()
@@ -185,8 +193,9 @@ def leftCorner():
     global wallOut
     global wallFollowEnable
     global input
+    global sonarDist
 
-    if us.value() > 400:
+    if sonarDist > 400:
 
         wallout = 0
         if wallFollowEnable == True:
@@ -211,21 +220,22 @@ def motion():
     global wallOut
     global forwardOut
     turnGain = 1.5
+    turnSpeed = 50
 
     # update the motors
-    turnError = input - gs.value(0)
+    turnError = input + wallOut - gs.value(0) + 0.0
 
     print "turn error: %d" % turnError
 
-    if turnError > 1:
-        turnError = 1
-    if turnError < -1:
-        turnError = -1
+    if turnError > turnSpeed:
+        turnError = turnSpeed
+    if turnError < -turnSpeed:
+        turnError = -turnSpeed
 
-    turnOut = turnGain * (turnError + wallOut)
+    turnOut = turnGain * turnError
     rightOut = forwardOut + turnOut
     leftOut = forwardOut - turnOut
-    #print "turn error %d gyro val %d" % (turnError, gs.value(0))
+    print "turn error %.2f heading %d target %d wallOut %d" % (turnError, gs.value(0), input ,wallOut)
 
     if rightOut > 100:
         rightOut = 100
