@@ -11,6 +11,9 @@ from ev3dev.auto import *
 rightMotor = LargeMotor(OUTPUT_A)
 leftMotor  = LargeMotor(OUTPUT_D)
 
+#connect gripper
+gripper = LargeMotor(OUTPUT_B)
+
 # sensors
 us = UltrasonicSensor(); assert us.connected
 gs = GyroSensor(); assert gs.connected
@@ -34,7 +37,9 @@ forwardOut = 0
 smoothedGyro = gs.value(0)
 filterVal = 0.1
 wallFollowEnable = True
+turnError = 0
 sonarDist = 0
+turnCounter = 0
 
 def main():
     global input
@@ -51,18 +56,24 @@ def main():
     wallError = 0
     desDistToWall = 100.0 #mm
     forwardOut = 80
-    turnError = 0
+    global turnError
     global cyclesWithoutTurn
     global wallFollowEnable
     global sonarDist
+    global turnCounter
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
 
+
     while not btn.any():
         sonarDist = us.value(0)
+        turnCounter = turnCounter + 1
+        print "turnCounter: %d" % turnCounter
         #gyro drift correction
         #gyroDrift()
+
+        #grip()
         
 
         # loop handling
@@ -72,9 +83,10 @@ def main():
         detectRed()
 
         # wall following
-        if sonarDist < 200 and wallFollowEnable == False:
+        if wallFollowEnable == False and turnCounter > 25:
             wallFollowEnable = True
             print "wall following enabled"
+            turnCounter = 0
 
         if wallFollowEnable == True:
             wallError = -(sonarDist - desDistToWall)
@@ -109,6 +121,7 @@ def main():
         # continue onwards
         motion()
 
+
 def start():
     global input
     global startHeading
@@ -126,9 +139,11 @@ def start():
     gs.mode = 'GYRO-RATE'
     sleep(1)
     gs.mode = 'GYRO-G&A'
+    sleep(1)
     input = gs.value(0)
     startHeading = gs.value(0)
     print "start heading: %d" % startHeading
+    gripper.position = 0
 
 def backup():
     leftMotor.stop(stop_command='brake')
@@ -186,6 +201,7 @@ def detectRed():
     if cs.value(0) > 15 and cs.value(0) > (cs.value(1) + cs.value(2)):
         Sound.tone([(1500, 200, 50)] * 10)
         print "OBJECTIVE DETECTED!!!!!"
+        grip()
         backup()
         input += 180
 
@@ -194,11 +210,15 @@ def leftCorner():
     global wallFollowEnable
     global input
     global sonarDist
+    global turnCounter
 
     if sonarDist > 400:
-
         wallout = 0
         if wallFollowEnable == True:
+            if turnCounter < 10:
+                turnCounter = -20
+            else:
+                turnCounter = 0 # the counter is advanced further for  left turn
             print "left corner detected"
             input -= 90
             wallFollowEnable = False
@@ -209,9 +229,13 @@ def leftCorner():
 
 def frontCollision():
     global input
+    global turnCounter
+    global wallFollowEnable
 
     if ts1.value():
         print "front collision, turning right"
+        turnCounter = 0
+        wallFollowEnable = False
         backup()
         input += 90
 
@@ -250,6 +274,14 @@ def motion():
     rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=100)
     leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=100)
 
+def grip():
+    while gripper.position > -70:
+    	gripper.run_to_abs_pos(speed_regulation_enabled='on', speed_sp=100, position_sp=-70)
+
+def release():
+    while gripper.position < 0:
+        gripper.run_to_abs_pos(speed_regulation_enabled='on', speed_sp=100, position=0)
+
 print "ready to start"
 start()
 print "starting"
@@ -257,4 +289,3 @@ main()
 print "main"
 rightMotor.stop()
 leftMotor.stop()
-
