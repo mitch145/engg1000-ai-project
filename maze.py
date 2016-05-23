@@ -1,3 +1,5 @@
+
+
 from time   import sleep
 import sys
 import os
@@ -15,14 +17,16 @@ leftMotor  = LargeMotor(OUTPUT_D)
 gripper = LargeMotor(OUTPUT_B)
 
 # sensors
-sonarLeft = Ultrasonicolourensor(INPUT_1); assert sonarLeft.connected
+sonarLeft = UltrasonicSensor(INPUT_1); assert sonarLeft.connected
+sonarFront = UltrasonicSensor(INPUT_4); assert sonarFront.connected
 gyro = GyroSensor(); assert gyro.connected
 colour = ColorSensor(); assert colour.connected
-bumper = TouchSensor(INPUT_4); assert bumper.connected
+#bumper = TouchSensor(INPUT_4); assert bumper.connected
 
 gyro.mode = 'GYRO-G&A'
 colour.mode = 'RGB-RAW'
-#sonarLeft.mode = 'sonarLeft-SI-CM'
+#sonarLeft.mode = 'US-SI-CM'
+#sonarFront.mode = 'US-SI-CM'
 
 # We will need to check EV3 buttons state.
 btn = Button()
@@ -61,9 +65,6 @@ def main():
     global wallFollowEnable
     global sonarDist
     global turnCounter
-
-    GRIPPER_OPEN    = -70
-    GRIPPER_CLOSED  = 0
 
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
@@ -196,12 +197,14 @@ def mazeLoop():
 
 def detectRed():
     global input
+    GRIPPER_OPEN    = -70
+    GRIPPER_CLOSED  = 0
     #print "R: %d G: %d B: %d" % (colour.value(0), colour.value(1), colour.value(2))
 
     if colour.value(0) > 15 and colour.value(0) > (colour.value(1) + colour.value(2)):
         Sound.tone([(1500, 200, 50)] * 10)
         print "OBJECTIVE DETECTED!!!!!"
-        grip(GRIPPER_CLOSE)
+        grip(GRIPPER_CLOSED)
         backup()
         input += 180
 
@@ -232,7 +235,9 @@ def frontCollision():
     global turnCounter
     global wallFollowEnable
 
-    if bumper.value():
+    print "sonarFront %d" % sonarFront.value(0)
+
+    if sonarFront.value(0) < 15:
         print "front collision, turning right"
         turnCounter = 0
         wallFollowEnable = False
@@ -248,7 +253,7 @@ def motion():
 
     turnError = input + wallOut - gyro.value(0) + 0.0
 
-    print "turn error: %d" % turnError
+    #print "turn error: %d" % turnError
 
     if turnError > TURN_MAX_DEG_PER_CYCLE:
         turnError = TURN_MAX_DEG_PER_CYCLE
@@ -258,7 +263,7 @@ def motion():
     turnOut = TURN_P_GAIN * turnError
     rightOut = forwardOut + turnOut
     leftOut = forwardOut - turnOut
-    print "turn error %.2f heading %d target %d wallOut %d" % (turnError, gyro.value(0), input ,wallOut)
+    #print "turn error %.2f heading %d target %d wallOut %d" % (turnError, gyro.value(0), input ,wallOut)
 
     if rightOut > 100:
         rightOut = 100
