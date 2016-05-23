@@ -15,6 +15,8 @@ leftMotor  = LargeMotor(OUTPUT_D)
 
 #connect gripper
 gripper = LargeMotor(OUTPUT_B)
+closedPos = 0
+objectiveFound = False
 
 # sensors
 sonarLeft = UltrasonicSensor(INPUT_1); assert sonarLeft.connected
@@ -45,6 +47,7 @@ turnError           = 0
 sonarDist           = 0
 turnCounter         = 0
 
+
 def main():
     global input
     global wallDerivator
@@ -65,7 +68,7 @@ def main():
     global wallFollowEnable
     global sonarDist
     global turnCounter
-
+    global objectiveFound
     Leds.set_color(Leds.RIGHT, Leds.GREEN)
     Leds.set_color(Leds.LEFT, Leds.GREEN)
 
@@ -82,6 +85,9 @@ def main():
 
         # colour detection
         detectRed()
+        if objectiveFound == True:
+            checkGrip()
+
 
         # wall following
         if wallFollowEnable == False and turnCounter > 25:
@@ -197,14 +203,15 @@ def mazeLoop():
 
 def detectRed():
     global input
-    GRIPPER_OPEN    = -70
-    GRIPPER_CLOSED  = 0
+    global closedPos
     #print "R: %d G: %d B: %d" % (colour.value(0), colour.value(1), colour.value(2))
 
     if colour.value(0) > 15 and colour.value(0) > (colour.value(1) + colour.value(2)):
         Sound.tone([(1500, 200, 50)] * 10)
         print "OBJECTIVE DETECTED!!!!!"
-        grip(GRIPPER_CLOSED)
+        precisegripper(False)
+        closedPos = gripper.position
+        objectiveFound = True
         backup()
         input += 180
 
@@ -278,9 +285,54 @@ def motion():
     rightMotor.run_timed(duty_cycle_sp=rightOut, time_sp=100)
     leftMotor.run_timed(duty_cycle_sp=leftOut, time_sp=100)
 
-def grip(gripAmount):
-    while gripper.position != gripAmount:
-    	gripper.run_to_abs_pos(speed_regulation_enabled='on', speed_sp=100, position_sp = gripAmount)
+def precisegripper(open):
+    speed = 100
+    disttol = 0
+    looptol = 10
+    #degrees = 180
+
+
+    if open == True:
+        direction = 1
+    elif open == False:
+        direction = -1
+    
+    gripper.run_timed(duty_cycle_sp=direction*100, time_sp=4000)
+    print "motor speed"
+    #Resistance Checks
+    distanceChanged = 0
+    loopsnotmoved = 0
+    lastposition = gripper.position
+ 
+    #Loop until resistence (180 degrees)
+    while 1:
+        #this variable is the degrees the gripper has moved since the last loop
+        distanceChanged = gripper.position - lastposition
+        #count every time the gripper has moved less than 10 degrees
+        if abs(distanceChanged) <= abs(disttol):
+            loopsnotmoved = loopsnotmoved + 1
+        else:
+            #reset that count if it moved more than 10 degrees during the last loop
+            loopsnotmoved = 0
+        
+        #if it moved less than 10 degrees 3 times in a row stop the gripper
+        if loopsnotmoved >= looptol:
+            gripper.stop(stop_command="brake")
+            print "stop the program"
+            break 
+
+    
+        lastposition = gripper.position
+
+def checkGrip():
+    global closedPos
+    lastposition = gripper.position
+    MAX_OPEN = 32
+    distanceChanged = lastposition - closedPos 
+    print "dist changed %d" % distanceChanged
+    if (distanceChanged) >= MAX_OPEN:
+        precisegripper(False)
+        print "close the Gripper"
 
 print "ready to start"
 start()
